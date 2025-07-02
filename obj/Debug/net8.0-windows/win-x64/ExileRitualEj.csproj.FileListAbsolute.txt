@@ -1,0 +1,10 @@
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Source\ExileRitualEj\obj\Debug\net8.0-windows\win-x64\ExileRitualEj.csproj.AssemblyReference.cache
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Source\ExileRitualEj\obj\Debug\net8.0-windows\win-x64\ExileRitualEj.GeneratedMSBuildEditorConfig.editorconfig
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Source\ExileRitualEj\obj\Debug\net8.0-windows\win-x64\ExileRitualEj.AssemblyInfoInputs.cache
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Source\ExileRitualEj\obj\Debug\net8.0-windows\win-x64\ExileRitualEj.AssemblyInfo.cs
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Source\ExileRitualEj\obj\Debug\net8.0-windows\win-x64\ExileRitualEj.csproj.CoreCompileInputs.cache
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Temp\ExileRitualEj\ExileRitualEj.deps.json
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Temp\ExileRitualEj\ExileRitualEj.dll
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Source\ExileRitualEj\obj\Debug\net8.0-windows\win-x64\ExileRitualEj.dll
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Source\ExileRitualEj\obj\Debug\net8.0-windows\win-x64\refint\ExileRitualEj.dll
+D:\DolbaebTools\ExileApi-Compiled-3.26.0.0.0\Plugins\Source\ExileRitualEj\obj\Debug\net8.0-windows\win-x64\ref\ExileRitualEj.dll
