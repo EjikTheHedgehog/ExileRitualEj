@@ -53,7 +53,7 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
             if (entity?.IsValid == true && !entity.IsDead && !_processedGigantEntityIds.Contains(entity.Id))
             {
                 var statsComponent = entity.GetComponent<Stats>();
-                var combinedLifePct = 100;
+                var combinedLifePct = 0;
                 if (statsComponent?.StatDictionary != null)
                 {
                     foreach (var stat in statsComponent.StatDictionary)
@@ -200,7 +200,7 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
                     if (hasGigantismMod)
                     {
                         var statsComponent = entity.GetComponent<Stats>();
-                        var combinedLifePct = 100;
+                        var combinedLifePct = 0;
                         if (statsComponent?.StatDictionary != null)
                         {
                             foreach (var stat in statsComponent.StatDictionary)
