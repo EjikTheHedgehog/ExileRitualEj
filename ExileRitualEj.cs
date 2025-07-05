@@ -31,7 +31,6 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
     private readonly HashSet<Vector2> _gigantSpawnPositions = new HashSet<Vector2>();
     private readonly HashSet<uint> _processedGigantEntityIds = new HashSet<uint>();
     private readonly HashSet<Entity> _ritualRuneEntities = new HashSet<Entity>();
-    private readonly HashSet<Entity> _blockFog = new HashSet<Entity>();
     private readonly List<RitualBlockerInfo> _ritualBlockers = new List<RitualBlockerInfo>();
     public override bool Initialise()
     {
@@ -44,7 +43,6 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
         _gigantSpawnPositions.Clear();
         _processedGigantEntityIds.Clear();
         _ritualRuneEntities.Clear();
-        _blockFog.Clear();
         _ritualBlockers.Clear();
     }
 
@@ -83,9 +81,7 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
             }
         }
         
-        _gigantEntities.RemoveWhere(entity => entity?.IsValid != true || !entity.IsHostile || entity.IsDead);
-        
-        _ritualRuneEntities.RemoveWhere(entity => entity?.IsValid != true);
+        _gigantEntities.RemoveWhere(entity => entity?.IsDead == true);
         
         return null;
     }
@@ -96,6 +92,8 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
         {
             foreach (var entity in _gigantEntities.ToList())
             {
+                if (entity?.IsValid != true) continue;
+                
                 var screenPos = GameController.Game.IngameState.Camera.WorldToScreen(entity.PosNum);
                 if (screenPos.X > 0 && screenPos.Y > 0)
                 {
@@ -143,7 +141,9 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
         {
             foreach (var entity in _ritualRuneEntities.ToList())
             {
-                DrawCircleOnWorld(entity.GridPosNum, 1024f, Settings.RitualRadiusColor.Value);
+                if (entity?.IsValid != true) continue;
+                
+                DrawCircleOnWorld(entity.GridPosNum, Settings.RitualRadius.Value, Settings.RitualRadiusColor.Value, Settings.RitualRadiusThickness.Value);
             }
         }
         
@@ -172,8 +172,6 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
             {
                 return;
             }
-            
-            _blockFog.Add(entity);
             
             int totalPreviousCount = 0;
             foreach (var prevBlocker in _ritualBlockers)
@@ -308,7 +306,7 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
                screenPos.Y <= screenSize.Height + allowance;
     }
 
-    private void DrawCircleOnWorld(Vector2 gridPosition, float radius, SharpDX.Color color)
+    private void DrawCircleOnWorld(Vector2 gridPosition, float radius, SharpDX.Color color, int thickness = 3)
     {
         var sharpDxGridPos = new SharpDX.Vector2(gridPosition.X, gridPosition.Y);
         var worldPos2D = sharpDxGridPos.GridToWorld();
@@ -344,7 +342,7 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
             var nextScreenPos = GameController.Game.IngameState.Camera.WorldToScreen(nextWorldPos);
 
             Graphics.DrawLine(new Vector2(currentScreenPos.X, currentScreenPos.Y), 
-                            new Vector2(nextScreenPos.X, nextScreenPos.Y), 3, color);
+                            new Vector2(nextScreenPos.X, nextScreenPos.Y), thickness, color);
         }
     }
 
