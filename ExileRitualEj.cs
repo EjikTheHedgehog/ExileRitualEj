@@ -25,15 +25,49 @@ public class RitualBlockerInfo
     }
 }
 
+public struct EntityStatsInfo
+{
+    public int CombinedLifePct { get; set; }
+    public int ActorScalePct { get; set; }
+}
+
 public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
 {
+    #region Constants
+    // Configuration constants for gigantic entity detection via mods and stats,
+    // distance calculations, and metadata identifiers for ritual entities
+    
+    private const int MIN_COMBINED_LIFE_PCT = 100;
+    private const int MIN_ACTOR_SCALE_PCT = 80;
+    private const float MIN_BLOCKER_DISTANCE = 5f;
+    private const float MAX_BLOCKER_UPDATE_DISTANCE = 200f;
+    private const string GIGANTISM_MOD = "MonsterSupporterGigantism1";
+    private const string RITUAL_BLOCKER_METADATA = "Metadata/Terrain/Leagues/Ritual/RitualBlocker";
+    private const string RITUAL_RUNE_METADATA = "Metadata/Terrain/Leagues/Ritual/RitualRuneObject";
+    
+    #endregion
+
+    #region Fields
+    // Collections for tracking gigantic entities, their spawn positions,
+    // ritual runes, blockers(fog while encounter), inside ritual spawn positions, and the rendering component
+    
     private readonly HashSet<Entity> _gigantEntities = new HashSet<Entity>();
     private readonly HashSet<Vector2> _gigantSpawnPositions = new HashSet<Vector2>();
     private readonly HashSet<uint> _processedGigantEntityIds = new HashSet<uint>();
     private readonly HashSet<Entity> _ritualRuneEntities = new HashSet<Entity>();
     private readonly List<RitualBlockerInfo> _ritualBlockers = new List<RitualBlockerInfo>();
+    private readonly HashSet<Vector2> _insideRitualSpawnPositions = new HashSet<Vector2>();
+    
+    private ExileRitualEjRenderer _renderer;
+    
+    #endregion
+
+    #region Override Methods
+    // Plugin lifecycle methods: initialization and area change handling
+    
     public override bool Initialise()
     {
+        _renderer = new ExileRitualEjRenderer(this, Settings, GameController, Graphics);
         return true;
     }
 
@@ -44,40 +78,22 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
         _processedGigantEntityIds.Clear();
         _ritualRuneEntities.Clear();
         _ritualBlockers.Clear();
+        _insideRitualSpawnPositions.Clear();
     }
 
+    #endregion
+
+    #region Tick Processing
+    // Main game loop processing: validates gigantic entities, checks their stats,
+    // and registers spawn positions when conditions are met
+    
     public override Job Tick()
     {
         foreach (var entity in _gigantEntities.ToList())
         {
-            if (entity?.IsValid == true && !entity.IsDead && !_processedGigantEntityIds.Contains(entity.Id))
+            if (ShouldProcessGigantEntity(entity))
             {
-                var statsComponent = entity.GetComponent<Stats>();
-                var combinedLifePct = 0;
-                if (statsComponent?.StatDictionary != null)
-                {
-                    foreach (var stat in statsComponent.StatDictionary)
-                    {
-                        if (stat.Key.ToString().Contains("CombinedLifePct"))
-                        {
-                            combinedLifePct = stat.Value;
-                            break;
-                        }
-                    }
-                }
-                if (combinedLifePct >= 100)
-                {
-                    _gigantSpawnPositions.Add(entity.GridPosNum);
-                    _processedGigantEntityIds.Add(entity.Id);
-                    
-                    UpdateRitualBlockerCounts(entity.GridPosNum);
-                    
-                    LogMessage($"GIGANTIC spawn position saved: {entity.GridPosNum}, Distance: {entity.DistancePlayer}, CombinedLifePct: {combinedLifePct}");
-                }
-                else
-                {
-                    LogMessage($"GIGANTIC entity skipped (damaged): ID={entity.Id}, CombinedLifePct: {combinedLifePct}");
-                }
+                ProcessGigantEntity(entity);
             }
         }
         
@@ -86,309 +102,256 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
         return null;
     }
 
-    public override void Render()
+    private bool ShouldProcessGigantEntity(Entity entity)
     {
-        if (Settings.RenderGiganticName.Value)
-        {
-            foreach (var entity in _gigantEntities.ToList())
-            {
-                if (entity?.IsValid != true) continue;
-                
-                var screenPos = GameController.Game.IngameState.Camera.WorldToScreen(entity.PosNum);
-                if (screenPos.X > 0 && screenPos.Y > 0)
-                {
-                    var textPos = new Vector2(screenPos.X - 40, screenPos.Y - 60);
-                    
-                    var text = "GIGANT";
-                    var scale = 8.0f;
-                    
-                    for (int i = 0; i < text.Length; i++)
-                    {
-                        var charPos = new Vector2(textPos.X + i * 2 * scale, textPos.Y);
-                        var character = text[i].ToString();
-                        
-                        for (int x = -2; x <= 2; x++)
-                        {
-                            for (int y = -2; y <= 2; y++)
-                            {
-                                if (x != 0 || y != 0)
-                                {
-                                    Graphics.DrawText(character, new Vector2(charPos.X + x, charPos.Y + y), Color.Black);
-                                }
-                            }
-                        }
-                        
-                        Graphics.DrawText(character, charPos, Color.White);
-                    }
-                }
-            }
-        }
-        
-        if (Settings.RenderGiganticSpawnPositions.Value)
-        {
-            foreach (var spawnPos in _gigantSpawnPositions)
-            {
-                if (GameController.Game.IngameState.IngameUi.Map.LargeMap.IsVisibleLocal)
-                {
-                    DrawFilledCircleOnMap(spawnPos, 6f, Settings.GiganticSpawnColor.Value);
-                }
-                
-                DrawFilledCircleOnWorld(spawnPos, 50f, Settings.GiganticSpawnColor.Value);
-            }
-        }
-        
-        if (Settings.RenderRitualRadius.Value)
-        {
-            foreach (var entity in _ritualRuneEntities.ToList())
-            {
-                if (entity?.IsValid != true) continue;
-                
-                DrawCircleOnWorld(entity.GridPosNum, Settings.RitualRadius.Value, Settings.RitualRadiusColor.Value, Settings.RitualRadiusThickness.Value);
-            }
-        }
-        
-        DrawRitualBlockerCounts();
+        return entity?.IsValid == true && 
+               !entity.IsDead && 
+               !_processedGigantEntityIds.Contains(entity.Id);
     }
 
+    private void ProcessGigantEntity(Entity entity)
+    {
+        var entityStats = GetEntityStats(entity);
+        
+        if (IsGiganticEntity(entity))
+        {
+            RegisterGigantSpawn(entity, entityStats);
+        }
+        else
+        {
+            LogGigantSkipped(entity, entityStats);
+        }
+    }
+
+    private EntityStatsInfo GetEntityStats(Entity entity)
+    {
+        var statsComponent = entity.GetComponent<Stats>();
+        return new EntityStatsInfo
+        {
+            CombinedLifePct = GetStatValue(statsComponent, "CombinedLifePct"),
+            ActorScalePct = GetStatValue(statsComponent, "ActorScalePct")
+        };
+    }
+
+    private void RegisterGigantSpawn(Entity entity, EntityStatsInfo stats)
+    {
+        _gigantSpawnPositions.Add(entity.GridPosNum);
+        _processedGigantEntityIds.Add(entity.Id);
+        
+        bool blockerUpdated = UpdateRitualBlockerCounts(entity.GridPosNum);
+        
+        // If blocker count was updated, this is an inside ritual spawn position
+        if (blockerUpdated)
+        {
+            _insideRitualSpawnPositions.Add(entity.GridPosNum);
+            LogMessage($"Inside RITUAL spawn position registered: {entity.GridPosNum} (blocker count updated)");
+        }
+        
+        LogMessage($"GIGANTIC spawn position saved: {entity.GridPosNum}, Distance: {entity.DistancePlayer}, " +
+                  $"CombinedLifePct: {stats.CombinedLifePct}, ActorScalePct: {stats.ActorScalePct}");
+    }
+
+    private void LogGigantSkipped(Entity entity, EntityStatsInfo stats)
+    {
+        LogMessage($"GIGANTIC entity skipped (conditions not met): ID={entity.Id}, " +
+                  $"CombinedLifePct: {stats.CombinedLifePct}, ActorScalePct: {stats.ActorScalePct}");
+    }
+
+    #endregion
+
+    #region Render
+    // Rendering delegation: passes data to the renderer for visual display
+    
+    public override void Render()
+    {
+        _renderer.RenderGiganticNames(_gigantEntities);
+        _renderer.RenderGiganticSpawnPositions(_gigantSpawnPositions);
+        _renderer.RenderRitualRadius(_ritualRuneEntities);
+        _renderer.DrawRitualBlockerCounts(_ritualBlockers);
+        _renderer.RenderInsideRitualSpawnPositions(_insideRitualSpawnPositions);
+    }
+
+    #endregion
+
+    #region Entity Processing
+    // Main entity event handler: routes newly added entities to appropriate processors
+    // based on their type (ritual blocker fog, gigantic entity, or ritual rune)
+    
     public override void EntityAdded(Entity entity)
     {
-        if (entity?.IsValid == true && entity.IsHostile && entity.Metadata == "Metadata/Terrain/Leagues/Ritual/RitualBlocker")
-        {
-            const float minDistance = 5f;
-            bool tooClose = false;
-            
-            foreach (var existingBlocker in _ritualBlockers)
-            {
-                var distance = Vector2.Distance(existingBlocker.Position, entity.GridPosNum);
-                if (distance < minDistance)
-                {
-                    tooClose = true;
-                    LogMessage($"RitualBlocker ignored (too close): Distance={distance:F1} to existing blocker at {existingBlocker.Position}");
-                    break;
-                }
-            }
-            
-            if (tooClose)
-            {
-                return;
-            }
-            
-            int totalPreviousCount = 0;
-            foreach (var prevBlocker in _ritualBlockers)
-            {
-                totalPreviousCount += prevBlocker.Count;
-            }
-            
-            var blockerInfo = new RitualBlockerInfo(entity.GridPosNum, entity.Id);
-            blockerInfo.Count = -totalPreviousCount;
-            _ritualBlockers.Add(blockerInfo);
-            
-            LogMessage($"RitualBlocker entity added: ID={entity.Id}, Position={entity.GridPosNum}, InitialCount={blockerInfo.Count} (total previous was {totalPreviousCount})");
-            return;
-        }
-        
-        if (entity?.IsValid == true && entity.IsHostile && entity.HasComponent<ObjectMagicProperties>())
-        {
-            try
-            {
-                var magicProperties = entity.GetComponent<ObjectMagicProperties>();
-                if (magicProperties?.Mods != null)
-                {
-                    var hasGigantismMod = magicProperties.Mods.Any(mod =>
-                        mod?.Contains("MonsterSupporterGigantism1") == true);
+        if (entity?.IsValid != true) return;
 
-                    if (hasGigantismMod)
-                    {
-                        var statsComponent = entity.GetComponent<Stats>();
-                        var combinedLifePct = 0;
-                        if (statsComponent?.StatDictionary != null)
-                        {
-                            foreach (var stat in statsComponent.StatDictionary)
-                            {
-                                if (stat.Key.ToString().Contains("CombinedLifePct"))
-                                {
-                                    combinedLifePct = stat.Value;
-                                    break;
-                                }
-                            }
-                        }
-                        if (combinedLifePct >= 100)
-                        {
-                            _gigantEntities.Add(entity);
-
-                            LogMessage($"GIGANTIC entity added: ID={entity.Id}, Distance={entity.DistancePlayer}, IsDead={entity.IsDead}, CombinedLifePct: {combinedLifePct}");
-                        }
-                        else
-                        {
-                            LogMessage($"GIGANTIC entity skipped (damaged): ID={entity.Id}, CombinedLifePct: {combinedLifePct}");
-                        }
-                    }
-                }
-            }
-            catch (System.Exception ex)
-            {
-                LogError($"Error processing entity in EntityAdded: {ex.Message}");
-            }
+        if (IsRitualBlocker(entity))
+        {
+            ProcessRitualBlocker(entity);
         }
-        
-        if (entity?.IsValid == true && entity.Metadata == "Metadata/Terrain/Leagues/Ritual/RitualRuneObject")
+        else if (IsHostileWithMagicProperties(entity))
+        {
+            ProcessPotentialGigant(entity);
+        }
+        else if (IsRitualRune(entity))
         {
             _ritualRuneEntities.Add(entity);
         }
     }
 
-    private void DrawFilledCircleOnMap(Vector2 gridPosition, float radius, SharpDX.Color color)
+    #endregion
+
+    #region Entity Type Checks
+    // Entity classification methods: determine entity types by metadata and components
+    
+    private bool IsRitualBlocker(Entity entity)
     {
-        var mapPos = GameController.IngameState.Data.GetGridMapScreenPosition(gridPosition);
-        
-        for (float r = 1; r <= radius; r += 1f)
+        return entity.IsHostile && entity.Metadata == RITUAL_BLOCKER_METADATA;
+    }
+
+    private bool IsHostileWithMagicProperties(Entity entity)
+    {
+        return entity.IsHostile && entity.HasComponent<ObjectMagicProperties>();
+    }
+
+    private bool IsRitualRune(Entity entity)
+    {
+        return entity.Metadata == RITUAL_RUNE_METADATA;
+    }
+
+    #endregion
+
+    #region Ritual Blocker Processing
+    // Ritual blocker management: handles distance validation, prevents duplicates,
+    // and maintains blocker count state for ritual tracking
+    
+    private void ProcessRitualBlocker(Entity entity)
+    {
+        if (IsTooCloseToExistingBlocker(entity.GridPosNum))
         {
-            const int segments = 16;
-            const float segmentAngle = 2f * (float)Math.PI / segments;
+            return;
+        }
 
-            for (var i = 0; i < segments; i++)
+        var blockerInfo = CreateRitualBlockerInfo(entity);
+        _ritualBlockers.Add(blockerInfo);
+        
+        LogMessage($"RitualBlocker entity added: ID={entity.Id}, Position={entity.GridPosNum}, " +
+                  $"InitialCount={blockerInfo.Count} (total previous was {-blockerInfo.Count})");
+    }
+
+    // The function prevents processing a new fog at the position of the previous fog (in case that ever happens)
+    private bool IsTooCloseToExistingBlocker(Vector2 position)
+    {
+        foreach (var existingBlocker in _ritualBlockers)
+        {
+            var distance = Vector2.Distance(existingBlocker.Position, position);
+            if (distance < MIN_BLOCKER_DISTANCE)
             {
-                var angle = i * segmentAngle;
-                var currentOffset = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)) * r;
-                var nextOffset = new Vector2((float)Math.Cos(angle + segmentAngle), (float)Math.Sin(angle + segmentAngle)) * r;
-
-                var currentPos = mapPos + currentOffset;
-                var nextPos = mapPos + nextOffset;
-
-                Graphics.DrawLine(currentPos, nextPos, 1, color);
+                LogMessage($"RitualBlocker ignored (too close): Distance={distance:F1} to existing blocker at {existingBlocker.Position}");
+                return true;
             }
         }
+        return false;
     }
 
-    private void DrawFilledCircleOnWorld(Vector2 gridPosition, float radius, SharpDX.Color color)
+    private RitualBlockerInfo CreateRitualBlockerInfo(Entity entity)
     {
-        var sharpDxGridPos = new SharpDX.Vector2(gridPosition.X, gridPosition.Y);
-        var worldPos2D = sharpDxGridPos.GridToWorld();
-        var terrainHeight = GameController.IngameState.Data.GetTerrainHeightAt(gridPosition);
-        var worldPos3D = new System.Numerics.Vector3(worldPos2D.X, worldPos2D.Y, terrainHeight);
-
-        if (!IsPositionOnScreen(worldPos3D, radius + 100f))
-        {
-            return;
-        }
-
-        Graphics.DrawFilledCircleInWorld(worldPos3D, radius, color);
-    }
-
-    private void DrawCircleOnMap(Vector2 gridPosition, float radius, SharpDX.Color color)
-    {
-        var mapPos = GameController.IngameState.Data.GetGridMapScreenPosition(gridPosition);
+        int totalPreviousCount = _ritualBlockers.Sum(blocker => blocker.Count);
         
-        const int segments = 32;
-        const float segmentAngle = 2f * (float)Math.PI / segments;
+        var blockerInfo = new RitualBlockerInfo(entity.GridPosNum, entity.Id);
+        blockerInfo.Count = -totalPreviousCount;
+        return blockerInfo;
+    }
 
-        for (var i = 0; i < segments; i++)
+    #endregion
+
+    #region Gigant Entity Processing
+    // Gigantic entity detection and validation: checks for gigantism mods,
+    // validates entity stats, and adds entities to tracking collection
+    
+    private void ProcessPotentialGigant(Entity entity)
+    {
+        try
         {
-            var angle = i * segmentAngle;
-            var currentOffset = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)) * radius;
-            var nextOffset = new Vector2((float)Math.Cos(angle + segmentAngle), (float)Math.Sin(angle + segmentAngle)) * radius;
+            var magicProperties = entity.GetComponent<ObjectMagicProperties>();
+            if (magicProperties?.Mods == null) return;
 
-            var currentPos = mapPos + currentOffset;
-            var nextPos = mapPos + nextOffset;
-
-            Graphics.DrawLine(currentPos, nextPos, 2, color);
+            if (HasGigantismMod(magicProperties))
+            {
+                HandleGigantismEntity(entity);
+            }
+        }
+        catch (System.Exception ex)
+        {
+            LogError($"Error processing entity in EntityAdded: {ex.Message}");
         }
     }
 
-    private bool IsPositionOnScreen(System.Numerics.Vector3 worldPosition, float allowance = 50f)
+    private bool HasGigantismMod(ObjectMagicProperties magicProperties)
     {
-        var screenPos = GameController.Game.IngameState.Camera.WorldToScreen(worldPosition);
-        var screenSize = GameController.Window.GetWindowRectangleTimeCache.Size;
+        return magicProperties.Mods.Any(mod => mod?.Contains(GIGANTISM_MOD) == true);
+    }
+
+    private void HandleGigantismEntity(Entity entity)
+    {
+        var entityStats = GetEntityStats(entity);
         
-        return screenPos.X >= -allowance && 
-               screenPos.X <= screenSize.Width + allowance &&
-               screenPos.Y >= -allowance && 
-               screenPos.Y <= screenSize.Height + allowance;
-    }
-
-    private void DrawCircleOnWorld(Vector2 gridPosition, float radius, SharpDX.Color color, int thickness = 3)
-    {
-        var sharpDxGridPos = new SharpDX.Vector2(gridPosition.X, gridPosition.Y);
-        var worldPos2D = sharpDxGridPos.GridToWorld();
-        var terrainHeight = GameController.IngameState.Data.GetTerrainHeightAt(gridPosition);
-        var worldPos3D = new System.Numerics.Vector3(worldPos2D.X, worldPos2D.Y, terrainHeight);
-
-        if (!IsPositionOnScreen(worldPos3D, radius + 100f))
+        if (IsGiganticEntity(entity))
         {
-            return;
+            _gigantEntities.Add(entity);
+            LogMessage($"GIGANTIC entity added: ID={entity.Id}, Distance={entity.DistancePlayer}, " +
+                      $"IsDead={entity.IsDead}, CombinedLifePct: {entityStats.CombinedLifePct}, " +
+                      $"ActorScalePct: {entityStats.ActorScalePct}");
         }
-
-        const int segments = 64;
-        const float segmentAngle = 2f * (float)Math.PI / segments;
-
-        for (var i = 0; i < segments; i++)
+        else
         {
-            var angle = i * segmentAngle;
-            var nextAngle = (i + 1) * segmentAngle;
-            
-            var currentOffset = new System.Numerics.Vector3(
-                (float)Math.Cos(angle) * radius, 
-                (float)Math.Sin(angle) * radius, 
-                0);
-            var nextOffset = new System.Numerics.Vector3(
-                (float)Math.Cos(nextAngle) * radius, 
-                (float)Math.Sin(nextAngle) * radius, 
-                0);
-
-            var currentWorldPos = worldPos3D + currentOffset;
-            var nextWorldPos = worldPos3D + nextOffset;
-
-            var currentScreenPos = GameController.Game.IngameState.Camera.WorldToScreen(currentWorldPos);
-            var nextScreenPos = GameController.Game.IngameState.Camera.WorldToScreen(nextWorldPos);
-
-            Graphics.DrawLine(new Vector2(currentScreenPos.X, currentScreenPos.Y), 
-                            new Vector2(nextScreenPos.X, nextScreenPos.Y), thickness, color);
+            LogMessage($"GIGANTIC entity skipped (conditions not met): ID={entity.Id}, " +
+                      $"CombinedLifePct: {entityStats.CombinedLifePct}, ActorScalePct: {entityStats.ActorScalePct}");
         }
     }
 
-    private void UpdateRitualBlockerCounts(Vector2 gigantPosition)
+    #endregion
+
+    #region Helper Methods
+    // Utility functions: stat extraction, entity validation, distance calculations,
+    // and ritual blocker count updates based on gigantic entity proximity
+    
+    private bool UpdateRitualBlockerCounts(Vector2 gigantPosition)
     {
-        const float maxDistance = 200f;
-        
+        bool blockerUpdated = false;
         foreach (var blocker in _ritualBlockers)
         {
             var distance = Vector2.Distance(blocker.Position, gigantPosition);
-            if (distance <= maxDistance)
+            if (distance <= MAX_BLOCKER_UPDATE_DISTANCE)
             {
                 blocker.Count++;
+                blockerUpdated = true;
                 LogMessage($"RitualBlocker count updated: Position={blocker.Position}, NewCount={blocker.Count}, Distance={distance:F1}");
             }
         }
+        return blockerUpdated;
     }
 
-    private void DrawRitualBlockerCounts()
+    private int GetStatValue(Stats statsComponent, string statName)
     {
-        foreach (var blocker in _ritualBlockers)
+        if (statsComponent?.StatDictionary == null) return 0;
+        
+        foreach (var stat in statsComponent.StatDictionary)
         {
-            var sharpDxGridPos = new SharpDX.Vector2(blocker.Position.X, blocker.Position.Y);
-            var worldPos2D = sharpDxGridPos.GridToWorld();
-            var terrainHeight = GameController.IngameState.Data.GetTerrainHeightAt(blocker.Position);
-            var worldPos3D = new System.Numerics.Vector3(worldPos2D.X, worldPos2D.Y, terrainHeight);
-
-            var screenPos = GameController.Game.IngameState.Camera.WorldToScreen(worldPos3D);
-            if (screenPos.X > 0 && screenPos.Y > 0)
+            if (stat.Key.ToString().Contains(statName))
             {
-                var textPos = new Vector2(screenPos.X - 10, screenPos.Y - 10);
-                var countText = blocker.Count.ToString();
-                
-                for (int x = -1; x <= 1; x++)
-                {
-                    for (int y = -1; y <= 1; y++)
-                    {
-                        if (x != 0 || y != 0)
-                        {
-                            Graphics.DrawText(countText, new Vector2(textPos.X + x, textPos.Y + y), Color.Black);
-                        }
-                    }
-                }
-                
-                Graphics.DrawText(countText, textPos, Color.Yellow);
+                return stat.Value;
             }
         }
+        return 0;
     }
+
+    private bool IsGiganticEntity(Entity entity)
+    {
+        var statsComponent = entity.GetComponent<Stats>();
+        if (statsComponent?.StatDictionary == null) return false;
+        
+        var combinedLifePct = GetStatValue(statsComponent, "CombinedLifePct");
+        var actorScalePct = GetStatValue(statsComponent, "ActorScalePct");
+        
+        return combinedLifePct >= MIN_COMBINED_LIFE_PCT && actorScalePct >= MIN_ACTOR_SCALE_PCT;
+    }
+
+    #endregion
 }

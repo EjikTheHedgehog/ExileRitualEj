@@ -27,3 +27,6 @@ obj/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# ExileApiErrorLogs
+Errors.txt
