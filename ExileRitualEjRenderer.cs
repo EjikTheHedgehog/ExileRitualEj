@@ -31,7 +31,7 @@ public class ExileRitualEjRenderer
         foreach (var entity in gigantEntities.ToList())
         {
             if (entity?.IsValid != true) continue;
-            
+
             var screenPos = _gameController.Game.IngameState.Camera.WorldToScreen(entity.PosNum);
             if (screenPos.X > 0 && screenPos.Y > 0)
             {
@@ -44,13 +44,13 @@ public class ExileRitualEjRenderer
     {
         var textPos = new Vector2(screenPos.X - 40, screenPos.Y - 60);
         var text = "GIGANT";
-        var scale = 8.0f;
-        
+        var scale = _settings.ScaleGiganticName.Value;
+
         for (int i = 0; i < text.Length; i++)
         {
             var charPos = new Vector2(textPos.X + i * 2 * scale, textPos.Y);
             var character = text[i].ToString();
-            
+
             // Draw shadow
             for (int x = -2; x <= 2; x++)
             {
@@ -62,7 +62,7 @@ public class ExileRitualEjRenderer
                     }
                 }
             }
-            
+
             _graphics.DrawText(character, charPos, Color.White);
         }
     }
@@ -77,7 +77,7 @@ public class ExileRitualEjRenderer
             {
                 DrawFilledCircleOnMap(spawnPos, 6f, _settings.GiganticSpawnColor.Value);
             }
-            
+
             DrawFilledCircleOnWorld(spawnPos, 50f, _settings.GiganticSpawnColor.Value);
         }
     }
@@ -89,8 +89,8 @@ public class ExileRitualEjRenderer
         foreach (var entity in ritualRuneEntities.ToList())
         {
             if (entity?.IsValid != true) continue;
-            
-            DrawCircleOnWorld(entity.GridPosNum, _settings.RitualRadius.Value, 
+
+            DrawCircleOnWorld(entity.GridPosNum, _settings.RitualRadius.Value,
                             _settings.RitualRadiusColor.Value, _settings.RitualRadiusThickness.Value);
         }
     }
@@ -101,7 +101,7 @@ public class ExileRitualEjRenderer
         {
             var worldPos3D = GridPositionToWorld3D(blocker.Position);
             var screenPos = _gameController.Game.IngameState.Camera.WorldToScreen(worldPos3D);
-            
+
             if (screenPos.X > 0 && screenPos.Y > 0)
             {
                 DrawCountText(screenPos, blocker.Count.ToString());
@@ -112,7 +112,7 @@ public class ExileRitualEjRenderer
     private void DrawCountText(System.Numerics.Vector2 screenPos, string countText)
     {
         var textPos = new Vector2(screenPos.X - 10, screenPos.Y - 10);
-        
+
         // Draw shadow
         for (int x = -1; x <= 1; x++)
         {
@@ -124,14 +124,14 @@ public class ExileRitualEjRenderer
                 }
             }
         }
-        
+
         _graphics.DrawText(countText, textPos, Color.Yellow);
     }
 
     private void DrawFilledCircleOnMap(Vector2 gridPosition, float radius, SharpDX.Color color)
     {
         var mapPos = _gameController.IngameState.Data.GetGridMapScreenPosition(gridPosition);
-        
+
         for (float r = 1; r <= radius; r += 1f)
         {
             const int segments = 16;
@@ -166,7 +166,7 @@ public class ExileRitualEjRenderer
     private void DrawCircleOnMap(Vector2 gridPosition, float radius, SharpDX.Color color)
     {
         var mapPos = _gameController.IngameState.Data.GetGridMapScreenPosition(gridPosition);
-        
+
         const int segments = 32;
         const float segmentAngle = 2f * (float)Math.PI / segments;
 
@@ -187,10 +187,10 @@ public class ExileRitualEjRenderer
     {
         var screenPos = _gameController.Game.IngameState.Camera.WorldToScreen(worldPosition);
         var screenSize = _gameController.Window.GetWindowRectangleTimeCache.Size;
-        
-        return screenPos.X >= -allowance && 
+
+        return screenPos.X >= -allowance &&
                screenPos.X <= screenSize.Width + allowance &&
-               screenPos.Y >= -allowance && 
+               screenPos.Y >= -allowance &&
                screenPos.Y <= screenSize.Height + allowance;
     }
 
@@ -210,14 +210,14 @@ public class ExileRitualEjRenderer
         {
             var angle = i * segmentAngle;
             var nextAngle = (i + 1) * segmentAngle;
-            
+
             var currentOffset = new System.Numerics.Vector3(
-                (float)Math.Cos(angle) * radius, 
-                (float)Math.Sin(angle) * radius, 
+                (float)Math.Cos(angle) * radius,
+                (float)Math.Sin(angle) * radius,
                 0);
             var nextOffset = new System.Numerics.Vector3(
-                (float)Math.Cos(nextAngle) * radius, 
-                (float)Math.Sin(nextAngle) * radius, 
+                (float)Math.Cos(nextAngle) * radius,
+                (float)Math.Sin(nextAngle) * radius,
                 0);
 
             var currentWorldPos = worldPos3D + currentOffset;
@@ -226,7 +226,7 @@ public class ExileRitualEjRenderer
             var currentScreenPos = _gameController.Game.IngameState.Camera.WorldToScreen(currentWorldPos);
             var nextScreenPos = _gameController.Game.IngameState.Camera.WorldToScreen(nextWorldPos);
 
-            _graphics.DrawLine(new Vector2(currentScreenPos.X, currentScreenPos.Y), 
+            _graphics.DrawLine(new Vector2(currentScreenPos.X, currentScreenPos.Y),
                             new Vector2(nextScreenPos.X, nextScreenPos.Y), thickness, color);
         }
     }
@@ -237,7 +237,7 @@ public class ExileRitualEjRenderer
         {
             var worldPos3D = GridPositionToWorld3D(spawnPos);
             var screenPos = _gameController.Game.IngameState.Camera.WorldToScreen(worldPos3D);
-            
+
             if (screenPos.X > 0 && screenPos.Y > 0)
             {
                 DrawInsideRitualSpawnText(screenPos);
@@ -250,12 +250,12 @@ public class ExileRitualEjRenderer
         var textPos = new Vector2(screenPos.X - 30, screenPos.Y - 15);
         var text = "RITUAL";
         var scale = 6.0f;
-        
+
         for (int i = 0; i < text.Length; i++)
         {
             var charPos = new Vector2(textPos.X + i * 2 * scale, textPos.Y);
             var character = text[i].ToString();
-            
+
             // Draw shadow
             for (int x = -2; x <= 2; x++)
             {
@@ -267,7 +267,7 @@ public class ExileRitualEjRenderer
                     }
                 }
             }
-            
+
             _graphics.DrawText(character, charPos, Color.Orange);
         }
     }
