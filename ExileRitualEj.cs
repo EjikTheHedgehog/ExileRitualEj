@@ -40,7 +40,7 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
     private const int MIN_COMBINED_LIFE_PCT = 100;
     private const int MIN_ACTOR_SCALE_PCT = 80;
     private const float MIN_BLOCKER_DISTANCE = 5f;
-    private const float MAX_BLOCKER_UPDATE_DISTANCE = 200f;
+    private const float MAX_BLOCKER_UPDATE_DISTANCE = 105f; // Ritual range is 100, so a bit more for safety
     private const string GIGANTISM_MOD = "MonsterSupporterGigantism1";
     private const string RITUAL_BLOCKER_METADATA = "Metadata/Terrain/Leagues/Ritual/RitualBlocker";
     private const string RITUAL_RUNE_METADATA = "Metadata/Terrain/Leagues/Ritual/RitualRuneObject";
