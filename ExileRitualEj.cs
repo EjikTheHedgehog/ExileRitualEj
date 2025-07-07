@@ -167,8 +167,8 @@ public class ExileRitualEj : BaseSettingsPlugin<ExileRitualEjSettings>
         _renderer.RenderGiganticNames(_gigantEntities);
         _renderer.RenderGiganticSpawnPositions(_gigantSpawnPositions);
         _renderer.RenderRitualRadius(_ritualRuneEntities);
-        _renderer.DrawRitualBlockerCounts(_ritualBlockers);
         _renderer.RenderInsideRitualSpawnPositions(_insideRitualSpawnPositions);
+        _renderer.DrawRitualBlockerCounts(_ritualBlockers);
     }
 
     #endregion
